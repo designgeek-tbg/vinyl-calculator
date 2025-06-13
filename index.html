@@ -243,7 +243,7 @@
         `Total Material Length: ${(convertFromMeters(totalLengthM, unit)).toFixed(1)} ${unit}`;
       document.getElementById('totalPrice').textContent = `Total Price: €${totalPrice.toFixed(2)}`;
       document.getElementById('wasteResult').textContent =
-        `Wasted area: ${wastePercent.toFixed(1)}% → ${wasteLabel}`;
+        `Wasted Material: ${wastePercent.toFixed(1)}% → ${wasteLabel}`;
       document.getElementById('wasteResult').className = wasteClass;
       document.getElementById('timeEstimate').textContent =
         `Estimated Print Time: ${timeHours > 0 ? timeHours + "h " : ""}${timeMins} mins`;
