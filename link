@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Vinyl Pricing Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f7f9fc;
+      color: #333;
+      padding: 40px;
+      max-width: 700px;
+      margin: auto;
+    }
+
+    img.logo {
+      display: block;
+      margin: 0 auto 20px;
+      max-width: 200px;
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 10px rgba(0,0,0,0.05);
+    }
+
+    label {
+      font-weight: 500;
+      display: block;
+      margin: 10px 0 5px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background-color: #005fa3;
+    }
+
+    h2 {
+      margin-top: 30px;
+      font-weight: 600;
+    }
+
+    p, #wasteResult, #timeEstimate {
+      background: #fff;
+      padding: 10px 15px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      margin-bottom: 10px;
+    }
+
+    #wasteResult.good { color: green; }
+    #wasteResult.okay { color: goldenrod; }
+    #wasteResult.poor { color: darkorange; }
+    #wasteResult.awful { color: red; }
+
+    canvas {
+      display: block;
+      margin: 20px auto 10px;
+      border: 1px solid #ccc;
+      background: #fff;
+    }
+
+    #fitNote {
+      text-align: center;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <img src="https://storage.googleapis.com/msgsndr/WwZUnNsXnaNcr7lppqgF/media/684c3a863317f8eec4bf0d8c.svg" alt="Logo" class="logo">
+  <h1>Vinyl Pricing Calculator</h1>
+
+  <form id="pricing-form">
+    <label for="unit">Units (for width & height):</label>
+    <select id="unit">
+      <option value="mm">Millimetres (mm)</option>
+      <option value="cm">Centimetres (cm)</option>
+      <option value="in">Inches (in)</option>
+      <option value="ft">Feet (ft)</option>
+    </select>
+
+    <label for="width">Width (or diameter):</label>
+    <input type="number" id="width" step="0.1" required>
+
+    <label for="length">Length (ignored for circles):</label>
+    <input type="number" id="length" step="0.1" required>
+
+    <label for="quantity">Quantity:</label>
+    <input type="number" id="quantity" required>
+
+    <label for="gap">Gap between pieces (mm):</label>
+    <input type="number" id="gap" value="5" required>
+
+    <label for="shape">Shape:</label>
+    <select id="shape">
+      <option value="rectangle">Rectangle</option>
+      <option value="circle">Circle</option>
+    </select>
+
+    <label for="material">Material Type:</label>
+    <select id="material" required>
+      <option value="50">Standard Vinyl (€50/m)</option>
+      <option value="75">High Value Vinyl (€75/m)</option>
+    </select>
+
+    <label for="rollWidth">Roll Width (in mm):</label>
+    <input type="number" id="rollWidth" step="0.1" value="1300" required>
+
+    <button type="button" id="calculateBtn" onclick="calculatePrice()">Calculate</button>
+  </form>
+
+  <h2>Result</h2>
+  <p id="materialLength">Total Material Length: -</p>
+  <p id="totalPrice">Total Price: -</p>
+  <p id="wasteResult" class="">Waste: -</p>
+  <p id="timeEstimate">Estimated Print Time: -</p>
+  <canvas id="fitDiagram" width="600" height="200"></canvas>
+  <p id="fitNote"></p>
+
+  <script>
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("calculateBtn").click();
+      }
+    });
+
+    function convertToMeters(value, unit) {
+      switch (unit) {
+        case 'mm': return value / 1000;
+        case 'cm': return value / 100;
+        case 'in': return value * 0.0254;
+        case 'ft': return value * 0.3048;
+        default: return value;
+      }
+    }
+
+    function convertFromMeters(value, unit) {
+      switch (unit) {
+        case 'mm': return value * 1000;
+        case 'cm': return value * 100;
+        case 'in': return value / 0.0254;
+        case 'ft': return value / 0.3048;
+        default: return value;
+      }
+    }
+
+    function classifyWaste(percentage) {
+      if (percentage < 5) return ["Good", "good"];
+      if (percentage < 8) return ["Okay", "okay"];
+      if (percentage < 12) return ["Poor", "poor"];
+      return ["An AWFUL waste altogether", "awful"];
+    }
+
+    function calculatePrice() {
+      const unit = document.getElementById('unit').value;
+      const widthInput = parseFloat(document.getElementById('width').value);
+      const lengthInput = parseFloat(document.getElementById('length').value);
+      const quantity = parseInt(document.getElementById('quantity').value);
+      const gapInput = parseFloat(document.getElementById('gap').value);
+      const shape = document.getElementById('shape').value;
+      const pricePerMeter = parseFloat(document.getElementById('material').value);
+      const rollWidthInput = parseFloat(document.getElementById('rollWidth').value);
+
+      const canvas = document.getElementById('fitDiagram');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      document.getElementById('fitNote').textContent = '';
+
+      if (!widthInput || !lengthInput || !quantity || !pricePerMeter || !rollWidthInput) {
+        alert("Please fill in all fields correctly.");
+        return;
+      }
+
+      const rollWidthM = rollWidthInput / 1000;
+      const gapM = gapInput / 1000;
+
+      const shapeWidth = convertToMeters(widthInput, unit);
+      const shapeLength = (shape === 'circle') ? shapeWidth : convertToMeters(lengthInput, unit);
+
+      let rotated = false;
+      let widthM = shapeWidth;
+      let lengthM = shapeLength;
+
+      if (shape === 'rectangle') {
+        if (shapeWidth > rollWidthM && shapeLength <= rollWidthM) {
+          widthM = shapeLength;
+          lengthM = shapeWidth;
+          rotated = true;
+        } else if (shapeWidth > rollWidthM && shapeLength > rollWidthM) {
+          alert("Neither width nor length fits the roll.");
+          return;
+        }
+      }
+
+      const piecesPerRow = Math.floor((rollWidthM + gapM) / (widthM + gapM));
+      const rows = Math.ceil(quantity / piecesPerRow);
+      const totalLengthM = rows * lengthM + gapM * (rows - 1);
+      const totalPrice = totalLengthM * pricePerMeter;
+
+      // Total used and roll area
+      const usedAreaM2 = quantity * (widthM * lengthM);
+      const totalRollAreaM2 = rollWidthM * totalLengthM;
+      const unusedArea = totalRollAreaM2 - usedAreaM2;
+      const wastePercent = (unusedArea / totalRollAreaM2) * 100;
+      const [wasteLabel, wasteClass] = classifyWaste(wastePercent);
+
+      const estTimeMinutes = totalLengthM * 20;
+      const timeHours = Math.floor(estTimeMinutes / 60);
+      const timeMins = Math.round(estTimeMinutes % 60);
+
+      document.getElementById('materialLength').textContent =
+        `Total Material Length: ${(convertFromMeters(totalLengthM, unit)).toFixed(1)} ${unit}`;
+      document.getElementById('totalPrice').textContent = `Total Price: €${totalPrice.toFixed(2)}`;
+      document.getElementById('wasteResult').textContent =
+        `Wasted area: ${wastePercent.toFixed(1)}% → ${wasteLabel}`;
+      document.getElementById('wasteResult').className = wasteClass;
+      document.getElementById('timeEstimate').textContent =
+        `Estimated Print Time: ${timeHours > 0 ? timeHours + "h " : ""}${timeMins} mins`;
+
+      document.getElementById('fitNote').textContent = rotated ? "Rotated to fit roll" : "Fitting in normal orientation";
+
+      const margin = 20;
+      const scale = (canvas.width - margin * 2) / rollWidthM;
+      const rowHeight = lengthM * scale + gapM * scale;
+      const layoutHeight = rows * rowHeight - gapM * scale;
+      const canvasHeight = Math.max(200, layoutHeight + margin * 2);
+
+      canvas.height = canvasHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const rollY = (canvas.height - layoutHeight) / 2;
+
+      ctx.strokeStyle = "#000";
+      ctx.strokeRect(margin, rollY, rollWidthM * scale, layoutHeight);
+
+      let count = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < piecesPerRow; c++) {
+          if (count >= quantity) break;
+
+          const rowWidthPx = piecesPerRow * (widthM + gapM) * scale - gapM * scale;
+          const offsetX = (canvas.width - rowWidthPx) / 2;
+          const x = offsetX + c * (widthM + gapM) * scale;
+          const y = rollY + r * (lengthM + gapM) * scale;
+
+          ctx.fillStyle = "#0077cc";
+          ctx.strokeStyle = "#000";
+
+          if (shape === 'circle') {
+            const radius = (widthM * scale) / 2;
+            ctx.beginPath();
+            ctx.arc(x + radius, y + lengthM * scale / 2, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.fillRect(x, y, widthM * scale, lengthM * scale);
+            ctx.strokeRect(x, y, widthM * scale, lengthM * scale);
+          }
+
+          count++;
+        }
+      }
+
+      ctx.fillStyle = "#000";
+      ctx.font = "10px Poppins";
+      ctx.textAlign = "center";
+      ctx.fillText(`${Math.round(rollWidthM * 1000)}mm roll width`, canvas.width / 2, 10);
+
+      ctx.save();
+      ctx.translate(margin - 10, canvas.height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText(`${totalLengthM.toFixed(2)} m`, 0, 0);
+      ctx.restore();
+    }
+  </script>
+</body>
+</html>
